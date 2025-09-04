@@ -1,0 +1,207 @@
+version: '3.8'
+
+networks:
+  app-net:
+    internal: false
+
+services:
+  db:
+    image: postgres:latest
+    container_name: patient-service-db
+    ports:
+      - "5000:5432"
+    environment:
+      POSTGRES_DB: patient-service
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+#    volumes:
+#      - D:\Workspace\Container\postgres_container_data\patient-service-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d patient-service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-net # Connects the database to the internal network
+
+  zookeeper:
+    image: wurstmeister/zookeeper:latest
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - app-net # Connects the zookeeper to the internal network
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "zookeeper", "2181" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: wurstmeister/kafka:latest
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_BROKER_ID: 1
+    networks:
+      - app-net # Connects the kafka to the internal network
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "kafka-topics.sh --bootstrap-server kafka:9092 --list" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+#  kafka-ui:
+#    image: provectuslabs/kafka-ui
+#    container_name: kafka-ui
+#    ports:
+#      - "8085:8080"
+#    environment:
+#      KAFKA_CLUSTERS_0_NAME: local-cluster
+#      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+#      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+#    networks:
+#      - app-net # Connects the kafka-ui to the internal network
+#    depends_on:
+#      - kafka
+#      - zookeeper
+
+  patient-service-app:
+    build: ./patient-service
+    container_name: patient-service-app
+#    ports:
+#      - "4000:4000"
+    environment:
+      # Billing Service GRPC
+      BILLING_SERVICE_ADDRESS: billing-service-app
+      BILLING_SERVICE_GRPC_PORT: 9001
+
+      # Database connection details, using standard Spring Boot environment variable names.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/patient-service
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+
+      # Hibernate and SQL initialization settings.
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: true
+      SPRING_SQL_INIT_MODE: always
+
+      # Kafka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+      # Application's port, which must match the server.port in application.yml
+      SERVER_PORT: 4000
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://patient-service-app:4000/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app-net # Connects the patient-service-app to the internal network
+    depends_on:
+      db:
+        condition: service_healthy
+#      kafka:
+#        condition: service_healthy
+
+  billing-service-app:
+    build: ./billing-service
+    container_name: billing-service-app
+    ports:
+      - "4001:4001"
+      - "9001:9001" # This is the gRPC port mapping
+    environment:
+      # Database connection details, using standard Spring Boot environment variable names.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/patient-service
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+
+      # Hibernate and SQL initialization settings.
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: true
+      SPRING_SQL_INIT_MODE: always
+
+      SERVER_PORT: 4001 # Application's port, which must match the server.port in application.yml
+      GRPC_SERVER_PORT: 9001 # This is the gRPC port environment variable
+    networks:
+      - app-net # Connects the billing-service-app to the internal network
+
+  analytics-service-app:
+    build: ./analytics-service
+    container_name: analytics-service-app
+    ports:
+      - "4002:4002"
+    environment:
+      SERVER_PORT: 4002 # Application's port, which must match the server.port in application.yml
+
+      # Kafka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - app-net # Connects the analytics-service-app to the internal network
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  api-gateway-app:
+    build: ./api-gateway
+    container_name: api-gateway-app
+    ports:
+      - "4004:4004"
+    environment:
+      AUTH_SERVICE_URL: http://auth-service-app:4005
+      SERVER_PORT: 4004 # Application's port, which must match the server.port in application.yml
+    networks:
+      - app-net # Connects the api-gateway-app to the internal network
+#    depends_on:
+#      patient-service-app:
+#        condition: service_healthy
+
+  auth-db:
+    image: postgres:latest
+    container_name: auth-service-db
+    ports:
+      - "5001:5432"
+    environment:
+      POSTGRES_DB: auth-service
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    #    volumes:
+    #      - D:\Workspace\Container\postgres_container_data\auth-service-db:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U admin -d auth-service" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-net # Connects the database to the internal network
+
+  auth-service-app:
+    build: ./auth-service
+    container_name: auth-service-app
+#    ports:
+#      - "4005:4005"
+    environment:
+      # Database connection details, using standard Spring Boot environment variable names.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth-service
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+
+      # Hibernate and SQL initialization settings.
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: true
+      SPRING_SQL_INIT_MODE: always
+
+      #JWT
+      JWT_SECRET: 17EC18CB99144D40D46F1320F5A96D7B3C46EB3C40163A7B84CE2EEFB4396C1CA5FD9DEA72DA315E52BD299948F9E48894ED2FEF897C8CDF1B1DA6EFB585D2D3
+    networks:
+      - app-net # Connects the auth-service-app to the internal network
+    depends_on:
+      auth-db:
+        condition: service_healthy
