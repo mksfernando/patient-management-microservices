@@ -5,7 +5,7 @@ spring:
   cloud:
     gateway:
       routes:
-        # Route for /auth/login to auth-service
+        # Route for /auth/login to auth-service [localstack uri config]
         - id: auth-service-route
           uri: http://host.docker.internal:4005
           predicates:
@@ -13,7 +13,7 @@ spring:
           filters:
             - StripPrefix=1
 
-        # Route for /api/patients/** to patient-service
+        # Route for /api/patients/** to patient-service [localstack uri config]
         - id: patient-service-route
           uri: http://host.docker.internal:4000
           predicates:
@@ -23,7 +23,7 @@ spring:
             - StripPrefix=1
             - JwtValidation #Looks for the GatewayFilterFactory prefix
 
-        # Route for /api-docs/patients to patient-service /v3/api-docs
+        # Route for /api-docs/patients to patient-service /v3/api-docs [localstack uri config]
         - id: api-docs-patient-route
           uri: http://host.docker.internal:4000
           predicates:
@@ -31,7 +31,7 @@ spring:
           filters:
             - RewritePath=/api-docs/patients,/v3/api-docs
 
-        # Route for /api-docs/auth to auth-service /v3/api-docs
+        # Route for /api-docs/auth to auth-service /v3/api-docs [localstack uri config]
         - id: api-docs-auth-service
           uri: http://host.docker.internal:4005
           predicates:
