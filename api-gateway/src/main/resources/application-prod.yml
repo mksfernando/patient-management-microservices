@@ -1,3 +1,4 @@
+# This file is configured to work with localstack [Localstack.createApiGatewayService-> env=prod]
 server:
   port: 4004
 
