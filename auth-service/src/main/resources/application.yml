@@ -1,0 +1,9 @@
+server:
+  port: 4005
+jpa:
+  hibernate:
+    ddl-auto: update
+  show-sql: true
+sql:
+  init:
+    mode: always
