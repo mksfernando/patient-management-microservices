@@ -3,6 +3,7 @@ package org.pm.patientservice.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.groups.Default;
+import org.pm.patientservice.model.dto.PagedPatientResponseDTO;
 import org.pm.patientservice.model.dto.PatientRequestDTO;
 import org.pm.patientservice.model.dto.PatientResponseDTO;
 import org.pm.patientservice.model.validators.CreatePatientValidationGroup;
@@ -26,8 +27,14 @@ public class PatientController {
 
     @GetMapping
     @Operation(summary = "Get patients")
-    public ResponseEntity<List<PatientResponseDTO>> getPatients() {
-        List<PatientResponseDTO> patients = patientService.getPatients();
+    public ResponseEntity<PagedPatientResponseDTO> getPatients(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "asc") String sort,
+            @RequestParam(defaultValue = "name") String sortField,
+            @RequestParam(defaultValue = "") String searchValue
+    ) {
+        PagedPatientResponseDTO patients = patientService.getPatients(page, size, sort, sortField, searchValue);
         return ResponseEntity.ok().body(patients);
     }
 

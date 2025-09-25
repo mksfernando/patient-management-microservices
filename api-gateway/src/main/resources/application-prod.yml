@@ -3,12 +3,22 @@ server:
   port: 4004
 
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
   cloud:
     gateway:
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.burstCapacity: 5
+            redis-rate-limiter.replenishRate: 5
+            key-resolver: "#{@ipKeyResolver}"
       routes:
         # Route for /auth/login to auth-service [localstack uri config]
         - id: auth-service-route
-          uri: http://host.docker.internal:4005
+          uri: http://auth-service.patient-management.local:4005
           predicates:
             - Path=/auth/**
           filters:
@@ -16,7 +26,7 @@ spring:
 
         # Route for /api/patients/** to patient-service [localstack uri config]
         - id: patient-service-route
-          uri: http://host.docker.internal:4000
+          uri: http://patient-service.patient-management.local:4000
           predicates:
             - Path=/api/patients
             - Path=/api/patients/**
@@ -26,7 +36,7 @@ spring:
 
         # Route for /api-docs/patients to patient-service /v3/api-docs [localstack uri config]
         - id: api-docs-patient-route
-          uri: http://host.docker.internal:4000
+          uri: http://patient-service.patient-management.local:4000
           predicates:
             - Path=/api-docs/patients
           filters:
@@ -34,7 +44,7 @@ spring:
 
         # Route for /api-docs/auth to auth-service /v3/api-docs [localstack uri config]
         - id: api-docs-auth-service
-          uri: http://host.docker.internal:4005
+          uri: http://auth-service.patient-management.local:4005
           predicates:
             - Path=/api-docs/auth
           filters:

@@ -101,8 +101,8 @@ services:
     build: ./patient-service
     container_name: patient-service-app
     image: patient-service
-    #    ports:
-#      - "4000:4000"
+    ports:
+      - "4000:4000"
     environment:
       # Billing Service GRPC
       BILLING_SERVICE_ADDRESS: billing-service-app
@@ -120,6 +120,11 @@ services:
 
       # Kafka
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+      # Redis
+      SPRING_CACHE_TYPE: redis
+      SPRING_DATA_REDIS_HOST: redis #Container name
+      SPRING_DATA_REDIS_PORT: 6379
 
       # Application's port, which must match the server.port in application.yml
       SERVER_PORT: 4000
@@ -156,6 +161,9 @@ services:
 
       SERVER_PORT: 4001 # Application's port, which must match the server.port in application.yml
       GRPC_SERVER_PORT: 9001 # This is the gRPC port environment variable
+
+      # Kafka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - app-net # Connects the billing-service-app to the internal network
 
@@ -187,9 +195,9 @@ services:
       SERVER_PORT: 4004 # Application's port, which must match the server.port in application.yml
     networks:
       - app-net # Connects the api-gateway-app to the internal network
-#    depends_on:
-#      patient-service-app:
-#        condition: service_healthy
+    depends_on:
+      patient-service-app:
+        condition: service_healthy
 
   auth-db:
     image: postgres:latest
@@ -234,3 +242,33 @@ services:
     depends_on:
       auth-db:
         condition: service_healthy
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-net # Connects redis to the internal network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - D:\Workspace\SourceCode\patient-management\monitoring\prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - app-net # Connects prometheus to the internal network
+
+#  prometheus-prod:
+#    build: ./monitoring
+#    image: prometheus-prod
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - app-net # Connects grafana to the internal network
