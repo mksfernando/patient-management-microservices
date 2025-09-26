@@ -83,7 +83,7 @@ public class PatientService {
         Patient newPatient = patientRepository.save(patientMapper.toEntity(patientRequestDTO));
 
         billingServiceGrpcClient.createBillingAccount(newPatient.getId().toString(), newPatient.getName(), newPatient.getEmail());
-        kafkaProducer.sendEvent(newPatient);
+        kafkaProducer.sendPatientCreatedEvent(newPatient);
 
         return patientMapper.toDto((newPatient));
     }
@@ -95,6 +95,7 @@ public class PatientService {
         }
         patientMapper.updateEntity(patientRequestDTO, patient);
         Patient updatedPatient = patientRepository.save(patient);
+        kafkaProducer.sendPatientUpdatedEvent(updatedPatient);
         return patientMapper.toDto(updatedPatient);
     }
 

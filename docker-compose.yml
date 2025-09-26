@@ -166,6 +166,9 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - app-net # Connects the billing-service-app to the internal network
+    depends_on:
+      kafka:
+        condition: service_healthy
 
   analytics-service-app:
     build: ./analytics-service
@@ -272,3 +275,49 @@ services:
       - "3000:3000"
     networks:
       - app-net # Connects grafana to the internal network
+
+  appointment-service-app:
+    build: ./appointment-service
+    container_name: appointment-service-app
+    image: appointment-service
+    ports:
+      - "4006:4006"
+    environment:
+      # Database connection details, using standard Spring Boot environment variable names.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://appointment-db:5432/appointment-service
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password
+
+      # Hibernate and SQL initialization settings.
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: true
+      SPRING_SQL_INIT_MODE: always
+
+      # Kafka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - app-net # Connects appointment-service-app to the internal network
+    depends_on:
+      appointment-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  appointment-db:
+    image: postgres:latest
+    container_name: appointment-service-db
+    ports:
+      - "5002:5432"
+    environment:
+      POSTGRES_DB: appointment-service
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    volumes:
+      - D:\Workspace\Container\postgres_container_data\appointment-service-db:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U admin -d appointment-service" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-net # Connects the database to the internal network
