@@ -34,8 +34,10 @@ public class LocalStack extends Stack {
         // RDS
         DatabaseInstance authServiceDb = createDatabase("AuthServiceDB", "auth-service");
         DatabaseInstance patientServiceDb = createDatabase("PatientServiceDB", "patient-service");
+        DatabaseInstance appointmentServiceDb = createDatabase("AppointmentServiceDB", "appointment-service");
         CfnHealthCheck authDbHealthCheck = createDbHealthCheck(authServiceDb, "AuthServiceDBHealthCheck");
         CfnHealthCheck patientDbHealthCheck = createDbHealthCheck(patientServiceDb, "PatientServiceDBHealthCheck");
+        CfnHealthCheck appointmentDbHealthCheck = createDbHealthCheck(appointmentServiceDb, "AppointmentServiceDBHealthCheck");
 
         // MSK
         CfnCluster mskCluster = createMskCluster();
@@ -68,6 +70,15 @@ public class LocalStack extends Stack {
                 null,
                 null);
         analytics.getNode().addDependency(mskCluster);
+
+        FargateService appointment = createFargateService("AppointmentsService",
+                "appointment-service",
+                List.of(4006),
+                appointmentServiceDb,
+                null
+        );
+        appointment.getNode().addDependency(appointmentDbHealthCheck);
+        appointment.getNode().addDependency(mskCluster);
 
         FargateService patientService = createFargateService("PatientService",
                 "patient-service",
