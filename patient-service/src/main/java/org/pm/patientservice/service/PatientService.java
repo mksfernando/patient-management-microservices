@@ -85,7 +85,7 @@ public class PatientService {
         billingServiceGrpcClient.createBillingAccount(newPatient.getId().toString(), newPatient.getName(), newPatient.getEmail());
         kafkaProducer.sendPatientCreatedEvent(newPatient);
 
-        return patientMapper.toDto((newPatient));
+        return patientMapper.toDto(newPatient);
     }
 
     public PatientResponseDTO updatePatient(UUID id, PatientRequestDTO patientRequestDTO) {
